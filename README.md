@@ -1,0 +1,2 @@
+# Ataxx
+My first Try
