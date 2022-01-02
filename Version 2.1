@@ -11,30 +11,26 @@ int blackcount = 2, whitecount = 2, tbcnt[10] = { 0 }, twcnt[10] = { 0 };//黑�
 int mycolor;
 int maxDepth;
 int start = clock();//用于卡时间
-static int dir[24][2] = { { 1,1 },{ 0,1 },{ -1,1 },{ -1,0 },{ -1,-1 },{ 0,-1 },{ 1,-1 },{ 1,0 },
+static int delta[24][2] = { { 1,1 },{ 0,1 },{ -1,1 },{ -1,0 },{ -1,-1 },{ 0,-1 },{ 1,-1 },{ 1,0 },
 { 2,0 },{ 2,1 },{ 2,2 },{ 1,2 },{ 0,2 },{ -1,2 },{ -2,2 },{ -2,1 },
 { -2,0 },{ -2,-1 },{ -2,-2 },{ -1,-2 },{ 0,-2 },{ 1,-2 },{ 2,-2 },{ 2,-1 } };//采用数组加一层循环的方式去走棋步
 
-double weight[7][7] =
-{ {1.00,0.96,0.88,0.80,0.88,0.96,1.00},
+double weightb[7][7] = { {1,0.965051,0.849347,0.803681,0.779659,0.789668,1, },
+{ 0.965051,0.87366,0.835621,0.743914,0.715635,0.719026,0.789668, },
+{ 0.849347,0.835621,0.788361,0.701912,0.677423,0.715635,0.779659, },
+{ 0.803681,0.743914,0.701912,0.70752,0.701912,0.743914,0.803681, },
+{ 0.779659,0.715635,0.677423,0.701912,0.788361,0.835621,0.849347, },
+{ 0.789667,0.719026,0.715635,0.743914,0.835621,0.87366,0.965051, },
+{ 1,0.789668,0.779659,0.803681,0.849347,0.965051,1, } };//权值表
 
+double weightw[7][7] = { {1,0.789668,0.779659, 0.803681, 0.849347, 0.965051, 1,},
+{ 0.789668,0.719026,0.715635,0.743914,0.835621,0.87366,0.965051,},
+{0.788361,0.701912,0.677423,0.715635,0.779659,0.835621, 0.849347,},
+{ 0.803681,0.743914,0.701912,0.70752,0.701912,0.743914,0.803681, },
+{ 0.849347,0.835621,0.788361,0.701912,0.677423, 0.715635, 0.779659, },
+{ 0.965051,0.87366, 0.835621,0.743914,0.715635,0.719026,0.789667, },
+{ 1,0.965051,0.849347,0.803681, 0.779659,0.789668,1,} };
 
-{0.96,0.95,0.84,0.75,0.84,0.95,0.96},
-
-
-{0.88,0.84,0.88,0.70,0.88,0.84,0.88},
-
-
-{0.80,0.75,0.68,0.62,0.68,0.75,0.80},
-
-
-{0.88,0.84,0.88,0.70,0.88,0.84,0.88},
-
-
-{0.96,0.95,0.84,0.75,0.84,0.95,0.96},
-
-
-{1.00,0.96,0.88,0.80,0.88,0.96,1.00}, };//地势估值表
 
 inline bool inMap(int x, int y)
 {
@@ -64,11 +60,24 @@ void recpy(int step)
 		}
 }
 
+/*人机模式下的几个判断函数***************************************************************************/
+bool JudgeMove(int m, int n, int x, int y, int mycolor)//这个更多的是要用到人机对战中吧，如果输入了非法棋步就要提示，机器对战的话可以在AI部分就控制好
+{
+	if (!inMap(m, n) || !inMap(x, y)) return 0;
+	if (board[x][y] != 0) return 0;
+	if (board[m][n] != mycolor) return 0;
+
+	int dx = abs(m - x), dy = abs(n - y);
+	if ((dx == 0 && dy == 0) || dx > 2 || dy > 2) return 0;
+	return 1;//上述情况都未出现则说明合法
+}
+//似乎没用上
+
 bool oneCanMove(int x, int y)//具体的某一个棋是否可以移动
 {
 	for (int k = 0; k < 24; k++)
 	{
-		int tx = x + dir[k][0], ty = y + dir[k][1];
+		int tx = x + delta[k][0], ty = y + delta[k][1];
 		if (!inMap(tx, ty)) continue;//这里之前注释掉了
 		if (board[tx][ty] == 0) return 1;
 	}
@@ -102,7 +111,7 @@ bool JudgeWin()//不可能平局，49个格子
 }
 
 
-void move(int m, int n, int x, int y, int mycolor)//进入此函数前就保证输入的合法性
+void move(int m, int n, int x, int y, int mycolor)//是否要嵌套canmove函数，应该不用，保证输入的合法性
 {
 	int count = 0;
 	if (mycolor == 1) blackcount += (abs(m - x) <= 1 && abs(n - y) <= 1);
@@ -112,7 +121,7 @@ void move(int m, int n, int x, int y, int mycolor)//进入此函数前就保证�
 	board[x][y] = mycolor;
 	for (int k = 0; k < 8; k++)//实现同化
 	{
-		int tx = x + dir[k][0], ty = y + dir[k][1];
+		int tx = x + delta[k][0], ty = y + delta[k][1];
 		if (!inMap(tx, ty))
 			continue;
 		if (board[tx][ty] == -mycolor)
@@ -121,6 +130,8 @@ void move(int m, int n, int x, int y, int mycolor)//进入此函数前就保证�
 			count++;
 		}
 	}
+
+	//如果保证了输入的合法性，这里应该不会出现count==0的情况，不对啊会出现的
 	if (count != 0)
 	{
 		if (mycolor == 1)
@@ -137,66 +148,60 @@ void move(int m, int n, int x, int y, int mycolor)//进入此函数前就保证�
 	return;
 }
 
-
-
-double Benefit(int color)//估价函数//根据局面要灵活变化
+double Benefit(int color)//估价函数，评定某一棋局某种颜色棋子的价
 {
 	double win = 0;
-	int cnt = 0, cnt1 = 0, cnt2 = 0;
+	int cnt = 0;
 	for (int i = 0; i < 7; i++)
 		for (int j = 0; j < 7; j++)
 		{
-			if(board[i][j]==color)
-				win += weight[i][j];
-				if (blackcount + whitecount <= 40)
-				{
-
-					if (board[i][j] == 0)//空位判断//其实可能没有必要，因为观看棋局发现很多都是跳步走的
-					{
-						for (int k = 0; k < 8; k++)
-						{
-							int tx = i + dir[k][0], ty = j + dir[k][1];
-							if (board[tx][ty] == mycolor) cnt1++;//这里不要写1和-1，否则就仅限于我方式黑棋的情况
-							else if (board[tx][ty] == -mycolor) cnt2++;
-						}
-						if (cnt1 >= 4)//有我方颜色的空位，危险
-						{
-							win -= 2;
-							break;
-						}
-						else if (cnt2 >= 4)//有对方颜色的空位，比较好
-						{
-							win += 2;
-							break;
-						}
-					}
-				}
-			
+			if (board[i][j] == color)
+			{
+				if (color == 1)
+				win += weightb[i][j];
+				else
+					win += weightw[i][j];
+				cnt++;
+			}
 		}
-
-	//srand((unsigned)time(0));
-	//win += (rand()%10)/20.0;//加入一个0-10的随机数
+	//这里可以灵活加入一些判断
+	if (cnt > 25) win += 20;
 	return win;
 }
 
 
 double Search(int color, int depth, double alpha, double beta)
 {
+	
+	maxDepth = 6;
+	//36个子之前用5步搜索
+	if (blackcount + whitecount <= 36)
+		maxDepth = 4;
+	//44个子之后用8步搜索
+	if (blackcount + whitecount >= 44)
+		maxDepth = 8;
 
-	if (depth == maxDepth - 1 && (clock() - start >= CLOCKS_PER_SEC * 0.95))//卡时间
-		return Benefit(color)-Benefit(-color);
-	if (depth == maxDepth - 2 && (clock() - start >= CLOCKS_PER_SEC * 0.90))
-		maxDepth-=2;
+	if (depth == maxDepth - 1 && maxDepth == 2)//卡时间
+		if (clock() - start >= CLOCKS_PER_SEC * 0.995)
+			maxDepth = 1;
+	if (depth == maxDepth - 1 && maxDepth == 3)
+		if (clock() - start >= CLOCKS_PER_SEC * 0.95)
+			maxDepth = 2;
+	if (depth == maxDepth - 2 && maxDepth == 4)
+		if (clock() - start >= CLOCKS_PER_SEC * 0.90)
+			maxDepth = 3;
+	if (depth == maxDepth - 2 && maxDepth >= 5)
+		if (clock() - start >= CLOCKS_PER_SEC * 0.85)
+			--maxDepth;
 
 	if (depth == maxDepth)//这层到底要不要遍历？是depth+1吗
-		return Benefit(color)-Benefit(-color);
+		return Benefit(color) - Benefit(-color);
 
 	//判断终局，最后一个棋要下的下去，因为search会比现在走的更深，所以必须在这里也写一个终局判断
 	if (!CanMove(color))
 	{
 		//如果另一种也不能走的话
-		if (!CanMove(-color)) return Benefit(color)-Benefit(-color);
-		//如果另一种棋可以走就继续搜索
+		if (!CanMove(-color)) return Benefit(mycolor) - Benefit(-mycolor);//这里为什么是返回mycolor的估值呢
 		return Search(-color, depth + 1, alpha, beta);
 	}
 
@@ -211,7 +216,7 @@ double Search(int color, int depth, double alpha, double beta)
 				{
 					for (int k = 0; k < 24; k++)
 					{
-						int tx = i + dir[k][0], ty = j + dir[k][1];
+						int tx = i + delta[k][0], ty = j + delta[k][1];
 						if (!inMap(tx, ty)) continue;
 						if (board[tx][ty] != 0) continue;
 						cpy(depth);
@@ -241,7 +246,7 @@ double Search(int color, int depth, double alpha, double beta)
 				{
 					for (int k = 0; k < 24; k++)
 					{
-						int tx = i + dir[k][0], ty = j + dir[k][1];
+						int tx = i + delta[k][0], ty = j + delta[k][1];
 						if (!inMap(tx, ty)) continue;
 						if (board[tx][ty] != 0) continue;
 						cpy(depth);
@@ -276,9 +281,9 @@ void AIdecision(int color)
 			if (board[i][j] != color) continue;
 			for (k = 0; k < 24; k++)
 			{
-				int tx = i + dir[k][0], ty = j + dir[k][1];
+				int tx = i + delta[k][0], ty = j + delta[k][1];
 				if (!inMap(tx, ty)) continue;
-				if (board[tx][ty] == color || board[tx][ty] == -color) continue;
+				if (board[tx][ty] ==color||board[tx][ty] == -color) continue;
 
 				cpy(0);
 				move(i, j, tx, ty, color);
@@ -294,9 +299,9 @@ void AIdecision(int color)
 				}
 			}
 		}
-	//if(board[bestx][besty]!=0) besty++;
+    //if(board[bestx][besty]!=0) besty++;
 	move(bestm, bestn, bestx, besty, color);
-	cout << bestn << " " << bestm << " " << besty << " " << bestx;//问题出在这里了，
+	cout << bestn << " " << bestm << " " << besty << " " << bestx;
 	return;
 }
 
@@ -309,7 +314,7 @@ int main()
 
 	int round = 0;
 	cin >> round;
-
+	
 
 	int m, n, x, y;
 	mycolor = -1;//如果输入的是-1则转变为黑方，否则为白方
@@ -330,12 +335,18 @@ int main()
 		move(m, n, x, y, -mycolor);// 模拟对方落子
 	else mycolor = 1;
 
-	maxDepth = 6;
+	//36个子之前用5步搜索
+	if (blackcount + whitecount <= 20)
+		maxDepth = 4;
+
 	//44个子之后用8步搜索
-	if (blackcount + whitecount >= 44)
+	else if (blackcount + whitecount >= 44)
 		maxDepth = 8;
 
+	else maxDepth = 6;
 
+	if (round <= 6)
+		maxDepth = 3;//前几局可以不搜那么深？？？局部最优解
 
 	if (mycolor == 1)//我拿黑子
 	{
